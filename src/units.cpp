@@ -169,7 +169,7 @@ bool updateUnitMultiplier(double &multiplier,
                 if (!isStandardPrefixName(pre)) {
                     return false;
                 }
-                multiplier += direction * (logMult + (standardMultiplierList.at(ref) + mult + standardPrefixList.at(pre)) * exp);
+                multiplier += direction * (mult + (standardMultiplierList.at(ref) + logMult + standardPrefixList.at(pre)) * exp);
                 updated = true;
             } else {
                 auto model = owningModel(units);
