@@ -792,3 +792,36 @@ TEST(Model, removeComponentInsensitiveToOrder)
     EXPECT_EQ(size_t(0), modelParsed->componentCount());
     EXPECT_EQ(size_t(2), modelApi->componentCount());
 }
+
+TEST(Model, getModelItemFromId)
+{
+    // This stuff should go into a toolkit class instead of here.
+    auto model = libcellml::Model::create("model");
+    auto component = libcellml::Component::create("component");
+    auto variable = libcellml::Variable::create("variable");
+    auto reset = libcellml::Reset::create();
+    auto units = libcellml::Units::create("units");
+    auto importSource = libcellml::ImportSource::create();
+
+    model->setId("model_id");
+    component->setId("component_id");
+    reset->setId("reset_id");
+    variable->setId("variable_id");
+    units->setId("units_id");
+    importSource->setId("import_id");
+
+    component->addVariable(variable);
+    component->addReset(reset);
+    component->setImportSource(importSource);
+    model->addComponent(component);
+    model->addUnits(units);
+
+    EXPECT_EQ(model, model->itemFromId("model_id"));
+    EXPECT_EQ(component, model->itemFromId("component_id"));
+    EXPECT_EQ(reset, model->itemFromId("reset_id"));
+    EXPECT_EQ(variable, model->itemFromId("variable_id"));
+    EXPECT_EQ(units, model->itemFromId("units_id"));
+    EXPECT_EQ(importSource, model->itemFromId("import_id"));
+
+    EXPECT_EQ(nullptr, model->itemFromId("I_dont_exist"));
+}

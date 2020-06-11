@@ -26,8 +26,10 @@ limitations under the License.
 #include <vector>
 
 #include "libcellml/component.h"
+#include "libcellml/importsource.h"
 #include "libcellml/model.h"
 #include "libcellml/namedentity.h"
+#include "libcellml/reset.h"
 #include "libcellml/units.h"
 
 namespace libcellml {
@@ -559,6 +561,183 @@ void findAllVariablesWithEquivalences(const ComponentPtr &component, VariablePtr
     for (size_t index = 0; index < component->componentCount(); ++index) {
         findAllVariablesWithEquivalences(component->component(index), variables);
     }
+}
+
+std::vector<ComponentPtr> serialiseComponents(const ModelPtr &model)
+{
+    std::vector<ComponentPtr> components;
+    for (size_t c = 0; c < model->componentCount(); ++c) {
+        addToComponentList(model->component(c), components);
+    }
+    return components;
+}
+
+void addToComponentList(const ComponentPtr &component, std::vector<ComponentPtr> &components)
+{
+    components.push_back(component);
+    for (size_t c = 0; c < component->componentCount(); ++c) {
+        addToComponentList(component->component(c), components);
+    }
+}
+
+std::vector<VariablePtr> serialiseVariables(const ModelPtr &model)
+{
+    std::vector<VariablePtr> variables;
+    for (size_t c = 0; c < model->componentCount(); ++c) {
+        addToVariableList(model->component(c), variables);
+    }
+    return variables;
+}
+
+void addToVariableList(const ComponentPtr &component, std::vector<VariablePtr> &variables)
+{
+    for (size_t v = 0; v < component->variableCount(); ++v) {
+        variables.push_back(component->variable(v));
+    }
+
+    for (size_t c = 0; c < component->componentCount(); ++c) {
+        addToVariableList(component->component(c), variables);
+    }
+}
+
+std::vector<ResetPtr> serialiseResets(const ModelPtr &model)
+{
+    std::vector<ResetPtr> resets;
+    for (size_t c = 0; c < model->componentCount(); ++c) {
+        addToResetList(model->component(c), resets);
+    }
+    return resets;
+}
+
+void addToResetList(const ComponentPtr &component, std::vector<ResetPtr> &resets)
+{
+    for (size_t r = 0; r < component->resetCount(); ++r) {
+        resets.push_back(component->reset(r));
+    }
+
+    for (size_t c = 0; c < component->componentCount(); ++c) {
+        addToResetList(component->component(c), resets);
+    }
+}
+
+std::vector<ImportSourcePtr> serialiseImportSources(const ModelPtr &model)
+{
+    std::vector<ImportSourcePtr> imports;
+    for (size_t c = 0; c < model->componentCount(); ++c) {
+        addToImportSourceList(model->component(c), imports);
+    }
+    return imports;
+}
+
+void addToImportSourceList(const ComponentPtr &component, std::vector<ImportSourcePtr> &imports)
+{
+    if (component->isImport()) {
+        imports.push_back(component->importSource());
+    }
+
+    for (size_t c = 0; c < component->componentCount(); ++c) {
+        addToImportSourceList(component->component(c), imports);
+    }
+}
+
+ItemInfo makeIdItem(const ComponentPtr &item)
+{
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+}
+
+ItemInfo makeIdItem(const VariablePtr &item)
+{
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+}
+
+ItemInfo makeIdItem(const ResetPtr &item)
+{
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+}
+
+ItemInfo makeIdItem(const UnitsPtr &item)
+{
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+}
+
+ItemInfo makeIdItem(const ImportSourcePtr &item)
+{
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+}
+
+ItemInfo makeIdItem(const ModelPtr &item)
+{
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+}
+
+void buildIdMapComponent(const ComponentPtr &component, ItemInfoMap &idMap)
+{
+    // Add component to map.
+    if (!component->id().empty()) {
+        idMap.insert(makeIdItem(component));
+    }
+
+    // Add import source to map.
+    if (component->isImport() && !component->importSource()->id().empty()) {
+        idMap.insert(makeIdItem(component->importSource()));
+    }
+
+    // Add variables to map.
+    for (size_t v = 0; v < component->variableCount(); ++v) {
+        if (!component->variable(v)->id().empty()) {
+            idMap.insert(makeIdItem(component->variable(v)));
+        }
+    }
+
+    // Add reset to map.
+    for (size_t r = 0; r < component->resetCount(); ++r) {
+        if (!component->reset(r)->id().empty()) {
+            idMap.insert(makeIdItem(component->reset(r)));
+        }
+    }
+
+    // Start recursion through child components.
+    for (size_t c = 0; c < component->componentCount(); ++c) {
+        buildIdMapComponent(component->component(c), idMap);
+    }
+}
+
+ItemInfoMap buildIdMap(const ModelPtr &model)
+{
+    ItemInfoMap idMap;
+
+    // Add model.
+    if (!model->id().empty()) {
+        idMap.insert(makeIdItem(model));
+    }
+
+    // Add units.
+    for (size_t u = 0; u < model->unitsCount(); ++u) {
+        if (!model->units(u)->id().empty()) {
+            idMap.insert(makeIdItem(model->units(u)));
+        }
+    }
+
+    // Start recursion through encapsulation hierarchy.
+    for (size_t c = 0; c < model->componentCount(); ++c) {
+        buildIdMapComponent(model->component(c), idMap);
+    }
+    return idMap;
+}
+
+EntityPtr getItemFromId(const ModelPtr &model, const std::string &id)
+{
+    auto idMap = buildIdMap(model);
+    auto num = idMap.count(id);
+    if (num < 1) {
+        return nullptr;
+    }
+    if (num > 1) {
+        return nullptr;
+    }
+    auto item = idMap.find(id)->second;
+
+    return item.second;
 }
 
 } // namespace libcellml

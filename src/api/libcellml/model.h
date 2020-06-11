@@ -358,6 +358,9 @@ public:
      */
     bool fixVariableInterfaces();
 
+    // KRM
+    EntityPtr itemFromId(const std::string &id);
+
 private:
     Model(); /**< Constructor */
     explicit Model(const std::string &name); /**< Constructor with std::string parameter*/

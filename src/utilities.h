@@ -557,4 +557,23 @@ static inline std::string trimCopy(std::string s)
     return s;
 }
 
+// KRM need to write descriptions for all these
+std::vector<ComponentPtr> serialiseComponents(const ModelPtr &model);
+void addToComponentList(const ComponentPtr &component, std::vector<ComponentPtr> &components);
+std::vector<VariablePtr> serialiseVariables(const ModelPtr &model);
+void addToVariableList(const ComponentPtr &component, std::vector<VariablePtr> &variables);
+std::vector<ResetPtr> serialiseResets(const ModelPtr &model);
+void addToResetList(const ComponentPtr &component, std::vector<ResetPtr> &resets);
+std::vector<ImportSourcePtr> serialiseImportSources(const ModelPtr &model);
+void addToImportSourceList(const ComponentPtr &component, std::vector<ImportSourcePtr> &imports);
+EntityPtr getItemFromId(const ModelPtr &model, const std::string &id);
+void buildIdMapComponent(const ComponentPtr &component, std::multimap<std::string, std::pair<std::string, EntityPtr>> &idMap);
+ItemInfo makeIdItem(const ModelPtr &item);
+ItemInfo makeIdItem(const ComponentPtr &item);
+ItemInfo makeIdItem(const VariablePtr &item);
+ItemInfo makeIdItem(const UnitsPtr &item);
+ItemInfo makeIdItem(const ResetPtr &item);
+ItemInfo makeIdItem(const ImportSourcePtr &item);
+std::multimap<std::string, std::pair<std::string, EntityPtr>> buildIdMap(const ModelPtr &model);
+
 } // namespace libcellml

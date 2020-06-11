@@ -45,4 +45,6 @@ using InterfaceTypePair = std::pair<Variable::InterfaceType, Variable::Interface
 
 using VariablePtrs = std::vector<VariablePtr>; /**< Type definition for list of variables. */
 
+using ItemInfoMap = std::multimap<std::string, std::pair<std::string, EntityPtr>>; /** Type definition for building id maps. ( id, (type, item )) **/
+using ItemInfo = std::pair<std::string,std::pair<std::string, EntityPtr>>;
 } // namespace libcellml
