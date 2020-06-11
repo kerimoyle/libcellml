@@ -955,9 +955,4 @@ bool Model::fixVariableInterfaces()
     return allOk;
 }
 
-// KRM
-EntityPtr Model::itemFromId(const std::string &id) {
-
-    return getItemFromId(shared_from_this(), id);
-}
 } // namespace libcellml
