@@ -45,6 +45,11 @@ TEST(Annotator, getItemsFromId)
     model->addUnits(units);
 
     annotator->build(model);
+    auto myType = annotator->typeFromId("model_id");
+    // auto myStruct = annotator->itemDictFromId("model_id");
+    auto item = annotator->itemMapFromId("model_id")[annotator->typeFromId("model_id")];
+
+
 
     EXPECT_EQ(model, annotator->itemFromId("model_id"));
     EXPECT_EQ(component, annotator->itemFromId("component_id"));

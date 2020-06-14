@@ -24,6 +24,16 @@ limitations under the License.
 
 namespace libcellml {
 
+struct LIBCELLML_EXPORT AnnotatorItemStruct
+{
+    ModelPtr model;
+    ComponentPtr component;
+    VariablePtr variable;
+    UnitsPtr units;
+    ResetPtr reset;
+    ImportSourcePtr importSource;
+};
+
 /**
  * @brief The Annotator class.
  *
@@ -49,7 +59,7 @@ public:
      */
     static AnnotatorPtr create() noexcept;
 
-    EntityPtr itemFromId(const std::string &id);
+    AnnotatorItemStruct* itemFromId(const std::string &id);
     std::string typeFromId(const std::string &id);
     void build(const ModelPtr &model);
 

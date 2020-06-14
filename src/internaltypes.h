@@ -17,8 +17,10 @@ limitations under the License.
 #pragma once
 
 #include <map>
+#include <variant>
 #include <vector>
 
+#include "libcellml/annotator.h"
 #include "libcellml/types.h"
 #include "libcellml/variable.h"
 
@@ -45,6 +47,11 @@ using InterfaceTypePair = std::pair<Variable::InterfaceType, Variable::Interface
 
 using VariablePtrs = std::vector<VariablePtr>; /**< Type definition for list of variables. */
 
-using ItemInfoMap = std::multimap<std::string, std::pair<std::string, EntityPtr>>; /** Type definition for id maps. **/
-using ItemInfo = std::pair<std::string, std::pair<std::string, EntityPtr>>; /** Type definition entries in id maps. **/
+// using ItemInfoMap = std::multimap<std::string, std::pair<std::string, EntityPtr>>; /** Type definition for id maps. **/
+// using ItemInfo = std::pair<std::string, std::pair<std::string, EntityPtr>>; /** Type definition entries in id maps. **/
+
+using ItemsVector = std::vector<std::variant<ModelPtr, ComponentPtr, VariablePtr, UnitsPtr, ResetPtr, ImportSourcePtr>> variantCollection;
+using ItemInfoMap = std::multimap<std::string, std::pair<std::string, AnnotatorItemStruct>>; /** Type definition for id maps. **/
+using ItemInfo = std::pair<std::string, ItemsVector>; /** Type definition entries in id maps. **/
+
 } // namespace libcellml

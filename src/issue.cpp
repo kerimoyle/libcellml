@@ -299,7 +299,12 @@ static const std::map<Issue::ReferenceRule, const std::string> ruleToHeading = {
     {Issue::ReferenceRule::CONNECTION_MAP_VARIABLES, "17.1.4"},
     {Issue::ReferenceRule::MAP_VARIABLES_VARIABLE1, "18.1.1"},
     {Issue::ReferenceRule::MAP_VARIABLES_VARIABLE2, "18.1.2"},
-    {Issue::ReferenceRule::MAP_VARIABLES_UNIQUE, "18.1.3"}};
+    {Issue::ReferenceRule::MAP_VARIABLES_UNIQUE, "18.1.3"},
+
+    {Issue::ReferenceRule::ANNOTATOR_NO_ID, "x.y.z"},
+    {Issue::ReferenceRule::ANNOTATOR_DUPLICATE_ID, "x.y.z"},
+
+    };
 
 std::string Issue::referenceHeading() const
 {

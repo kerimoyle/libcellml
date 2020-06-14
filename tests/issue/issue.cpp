@@ -69,6 +69,12 @@ TEST(Issue, createResetIssue)
 void testReferenceRule(const libcellml::IssuePtr &e)
 {
     switch (e->referenceRule()) {
+    case libcellml::Issue::ReferenceRule::ANNOTATOR_NO_ID:
+        EXPECT_EQ("x.y.z", e->referenceHeading());
+        break;
+    case libcellml::Issue::ReferenceRule::ANNOTATOR_DUPLICATE_ID:
+        EXPECT_EQ("x.y.z", e->referenceHeading());
+        break;
     case libcellml::Issue::ReferenceRule::COMPONENT_CHILD:
         EXPECT_EQ("10.1.2", e->referenceHeading());
         break;

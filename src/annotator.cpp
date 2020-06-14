@@ -131,34 +131,82 @@ AnnotatorPtr Annotator::create() noexcept
 //     }
 // }
 
+// ItemInfo makeIdItem(const ComponentPtr &item)
+// {
+//     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+// }
+
+// ItemInfo makeIdItem(const VariablePtr &item)
+// {
+//     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+// }
+
+// ItemInfo makeIdItem(const ResetPtr &item)
+// {
+//     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+// }
+
+// ItemInfo makeIdItem(const UnitsPtr &item)
+// {
+//     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+// }
+
+// ItemInfo makeIdItem(const ImportSourcePtr &item)
+// {
+//     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+// }
+
+// ItemInfo makeIdItem(const ModelPtr &item)
+// {
+//     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+// }
+
 ItemInfo makeIdItem(const ComponentPtr &item)
 {
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+    AnnotatorItemStruct u;
+    u.component = item;
+    // return std::make_pair(item->id(), std::make_pair("component", u));
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), u));
 }
 
 ItemInfo makeIdItem(const VariablePtr &item)
 {
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+    AnnotatorItemStruct u;
+    u.variable = item;
+    // return std::make_pair(item->id(), std::make_pair("variable", u));
+    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), u));
 }
 
 ItemInfo makeIdItem(const ResetPtr &item)
 {
+    AnnotatorItemStruct u;
+    u.reset = item;
+    // return std::make_pair(item->id(), std::make_pair("reset", u));
     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
 }
 
 ItemInfo makeIdItem(const UnitsPtr &item)
 {
+    AnnotatorItemStruct u;
+    u.units = item;
+    // return std::make_pair(item->id(), std::make_pair("units", u));
     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
 }
 
 ItemInfo makeIdItem(const ImportSourcePtr &item)
 {
+    AnnotatorItemStruct u;
+    u.importSource = item;
+    // return std::make_pair(item->id(), std::make_pair("importSource", u));
     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
 }
 
 ItemInfo makeIdItem(const ModelPtr &item)
 {
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+    AnnotatorItemStruct u;
+    u.model = item;
+    return std::make_pair(item->id(), std::make_pair("model", u));
+    // return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
 }
 
 void buildIdMapComponent(const ComponentPtr &component, ItemInfoMap &idMap)
@@ -221,18 +269,30 @@ void Annotator::build(const ModelPtr &model)
     mPimpl->mMap = buildIdMap(model);
 }
 
-EntityPtr Annotator::itemFromId(const std::string &id)
+AnnotatorItemStruct* Annotator::itemFromId(const std::string &id)
 {
     auto num = mPimpl->mMap.count(id);
     if (num < 1) {
+        IssuePtr issue = Issue::create();
+        issue->setDescription("Element with id '" + id + "' is not found in the model.");
+        issue->setReferenceRule(Issue::ReferenceRule::ANNOTATOR_NO_ID);
+        issue->setLevel(Issue::Level::WARNING);
+        mPimpl->mAnnotator->addIssue(issue);
+        AnnotatorItemStruct empty;
         return nullptr;
     }
     if (num > 1) {
+        IssuePtr issue = Issue::create();
+        issue->setDescription("Multiple elements (" + std::to_string(num) + ") with id '" + id + "' have been found in the model.");
+        issue->setReferenceRule(Issue::ReferenceRule::ANNOTATOR_DUPLICATE_ID);
+        issue->setLevel(Issue::Level::WARNING);
+        mPimpl->mAnnotator->addIssue(issue);
         return nullptr;
     }
+
     auto item = mPimpl->mMap.find(id)->second;
 
-    return item.second;
+    return &item.second;
 }
 
 std::string Annotator::typeFromId(const std::string &id)
