@@ -303,7 +303,7 @@ static const std::map<Issue::ReferenceRule, const std::string> ruleToHeading = {
 
 std::string Issue::referenceHeading() const
 {
-    std::string heading = "X.Y.Z";
+    std::string heading;
     auto search = ruleToHeading.find(referenceRule());
     if (search != ruleToHeading.end()) {
         heading = search->second;
