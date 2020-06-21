@@ -17,6 +17,7 @@ limitations under the License.
 #include "libcellml/annotator.h"
 
 #include <algorithm>
+#include <variant>
 
 #include "libcellml/component.h"
 #include "libcellml/importsource.h"
@@ -53,6 +54,7 @@ AnnotatorPtr Annotator::create() noexcept
 {
     return std::shared_ptr<Annotator> {new Annotator {}};
 }
+/*
 
 // std::vector<ComponentPtr> serialiseComponents(const ModelPtr &model)
 // {
@@ -161,51 +163,124 @@ AnnotatorPtr Annotator::create() noexcept
 //     return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
 // }
 
+*/
+
+void build(const ModelPtr &model)
+{
+
+}
+
+void buildIdMapComponent(const ComponentPtr &component, ItemInfoMap &idMap)
+{
+    // Add component to map.
+    if (!component->id().empty()) {
+        idMap.at('component')->insert(makeIdItem(component));
+    }
+
+    // Add import source to map.
+    if (component->isImport() && !component->importSource()->id().empty()) {
+        idMap.insert(makeIdItem(component->importSource()));
+    }
+
+    // Add variables to map.
+    for (size_t v = 0; v < component->variableCount(); ++v) {
+        if (!component->variable(v)->id().empty()) {
+            idMap.insert(makeIdItem(component->variable(v)));
+        }
+    }
+
+    // Add reset to map.
+    for (size_t r = 0; r < component->resetCount(); ++r) {
+        if (!component->reset(r)->id().empty()) {
+            idMap.insert(makeIdItem(component->reset(r)));
+        }
+    }
+
+    // Start recursion through child components.
+    for (size_t c = 0; c < component->componentCount(); ++c) {
+        buildIdMapComponent(component->component(c), idMap);
+    }
+}
+
+ItemInfoMap buildRecipeMap(const ModelPtr &model)
+{
+    RecipeMap recipeMap;
+
+    // Add model.
+    if (!model->id().empty()) {
+        idMap.insert(makeIdItem(model));
+    }
+
+    // Add units.
+    for (size_t u = 0; u < model->unitsCount(); ++u) {
+        if (!model->units(u)->id().empty()) {
+            idMap.insert(makeIdItem(model->units(u)));
+        }
+    }
+
+    // Start recursion through encapsulation hierarchy.
+    for (size_t c = 0; c < model->componentCount(); ++c) {
+        buildIdMapComponent(model->component(c), idMap);
+    }
+    return idMap;
+}
+
+// void Annotator::build(const ModelPtr &model)
+// {
+//     mPimpl->mMap = buildIdMap(model);
+// }
+#if 0
 ItemInfo makeIdItem(const ComponentPtr &item)
 {
     AnnotatorItemStruct u;
     u.component = item;
+    u.type = typeid(item).name();
     // return std::make_pair(item->id(), std::make_pair("component", u));
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), u));
+    return std::make_pair(item->id(), u);
 }
 
 ItemInfo makeIdItem(const VariablePtr &item)
 {
     AnnotatorItemStruct u;
     u.variable = item;
+    u.type = typeid(item).name();
     // return std::make_pair(item->id(), std::make_pair("variable", u));
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), u));
+    return std::make_pair(item->id(), u);
 }
 
 ItemInfo makeIdItem(const ResetPtr &item)
 {
     AnnotatorItemStruct u;
     u.reset = item;
+    u.type = typeid(item).name();
     // return std::make_pair(item->id(), std::make_pair("reset", u));
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+    return std::make_pair(item->id(), u);
 }
 
 ItemInfo makeIdItem(const UnitsPtr &item)
 {
     AnnotatorItemStruct u;
     u.units = item;
+    u.type = typeid(item).name();
     // return std::make_pair(item->id(), std::make_pair("units", u));
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+    return std::make_pair(item->id(), u);
 }
 
 ItemInfo makeIdItem(const ImportSourcePtr &item)
 {
     AnnotatorItemStruct u;
     u.importSource = item;
-    // return std::make_pair(item->id(), std::make_pair("importSource", u));
-    return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
+    u.type = typeid(item).name();
+
+    return std::make_pair(item->id(), u);
 }
 
 ItemInfo makeIdItem(const ModelPtr &item)
 {
     AnnotatorItemStruct u;
     u.model = item;
-    return std::make_pair(item->id(), std::make_pair("model", u));
+    u.type = typeid(item).name();
+    return std::make_pair(item->id(), u);
     // return std::make_pair(item->id(), std::make_pair(typeid(item).name(), std::dynamic_pointer_cast<Entity>(item)));
 }
 
@@ -269,8 +344,9 @@ void Annotator::build(const ModelPtr &model)
     mPimpl->mMap = buildIdMap(model);
 }
 
-AnnotatorItemStruct* Annotator::itemFromId(const std::string &id)
+AnnotatorItemStruct Annotator::itemFromId(const std::string &id)
 {
+    AnnotatorItemStruct item;
     auto num = mPimpl->mMap.count(id);
     if (num < 1) {
         IssuePtr issue = Issue::create();
@@ -278,8 +354,7 @@ AnnotatorItemStruct* Annotator::itemFromId(const std::string &id)
         issue->setReferenceRule(Issue::ReferenceRule::ANNOTATOR_NO_ID);
         issue->setLevel(Issue::Level::WARNING);
         mPimpl->mAnnotator->addIssue(issue);
-        AnnotatorItemStruct empty;
-        return nullptr;
+        return item;
     }
     if (num > 1) {
         IssuePtr issue = Issue::create();
@@ -287,12 +362,10 @@ AnnotatorItemStruct* Annotator::itemFromId(const std::string &id)
         issue->setReferenceRule(Issue::ReferenceRule::ANNOTATOR_DUPLICATE_ID);
         issue->setLevel(Issue::Level::WARNING);
         mPimpl->mAnnotator->addIssue(issue);
-        return nullptr;
+        return item;
     }
 
-    auto item = mPimpl->mMap.find(id)->second;
-
-    return &item.second;
+    return mPimpl->mMap.find(id)->second;
 }
 
 std::string Annotator::typeFromId(const std::string &id)
@@ -301,13 +374,22 @@ std::string Annotator::typeFromId(const std::string &id)
 
     auto num = mPimpl->mMap.count(id);
     if (num < 1) {
+        IssuePtr issue = Issue::create();
+        issue->setDescription("Element with id '" + id + "' is not found in the model.");
+        issue->setReferenceRule(Issue::ReferenceRule::ANNOTATOR_NO_ID);
+        issue->setLevel(Issue::Level::WARNING);
+        mPimpl->mAnnotator->addIssue(issue);
         return "";
     }
     if (num > 1) {
+        IssuePtr issue = Issue::create();
+        issue->setDescription("Multiple elements (" + std::to_string(num) + ") with id '" + id + "' have been found in the model.");
+        issue->setReferenceRule(Issue::ReferenceRule::ANNOTATOR_DUPLICATE_ID);
+        issue->setLevel(Issue::Level::WARNING);
+        mPimpl->mAnnotator->addIssue(issue);
         return "";
     }
-    auto item = mPimpl->mMap.find(id)->second;
-    return item.first;
+    return mPimpl->mMap.find(id)->second.type;
 }
-
+#endif
 } // namespace libcellml

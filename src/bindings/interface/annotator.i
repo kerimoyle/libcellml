@@ -12,8 +12,8 @@
 %feature("docstring") libcellml::Annotator::build
 "Build map for given model.";
 
-%feature("docstring") libcellml::Annotator::itemFromId
-"Retrieves an ``Entity`` for a given id.";
+// %feature("docstring") libcellml::Annotator::itemFromId
+// "Retrieves an ``Entity`` for a given id.";
 
 %{
 #include "libcellml/annotator.h"

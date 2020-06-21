@@ -24,15 +24,79 @@ limitations under the License.
 
 namespace libcellml {
 
-struct LIBCELLML_EXPORT AnnotatorItemStruct
-{
-    ModelPtr model;
-    ComponentPtr component;
-    VariablePtr variable;
-    UnitsPtr units;
-    ResetPtr reset;
-    ImportSourcePtr importSource;
-};
+// class AnnotatorItem
+// {
+// private:
+//     enum class Tag
+//     {
+//         MODEL,
+//         COMPONENT,
+//         VARIABLE,
+//         UNITS,
+//         RESET,
+//         IMPORTSOURCE
+//     } type;
+//     struct
+//     {
+//         ModelPtr model;
+//         ComponentPtr component;
+//         VariablePtr variable;
+//         UnitsPtr units;
+//         ResetPtr reset;
+//         ImportSourcePtr importSource;
+//     };
+//     AnnotatorItem &operator=(const AnnotatorItem &in)
+//     {
+//         if (type == Tag::MODEL && in.type == Tag::MODEL) {
+//             model = in.model;
+//             return *this;
+//         }
+
+//         switch (type) {
+//         case Tag::MODEL:
+//             model.~ModelPtr();
+//             break;
+//         case Tag::COMPONENT:
+//             component.~ComponentPtr();
+//             break;
+//         case Tag::VARIABLE:
+//             variable.~VariablePtr();
+//             break;
+//         case Tag::UNITS:
+//             units.~UnitsPtr();
+//             break;
+//         case Tag::RESET:
+//             reset.~ResetPtr();
+//             break;
+//         case Tag::IMPORTSOURCE:
+//             importSource.~ImportSourcePtr();
+//             break;
+//         }
+
+//         switch (in.type) {
+//         case Tag::MODEL:
+//             model = in.model;
+//             break;
+//         case Tag::COMPONENT:
+//             component = in.component;
+//             break;
+//         case Tag::VARIABLE:
+//             variable = in.variable;
+//             break;
+//         case Tag::UNITS:
+//             units = in.units;
+//             break;
+//         case Tag::RESET:
+//             reset = in.reset;
+//             break;
+//         case Tag::IMPORTSOURCE:
+//             importSource = in.importSource;
+//             break;
+//         }
+//         type = in.type;
+//         return *this;
+//     } // namespace libcellml
+// };
 
 /**
  * @brief The Annotator class.
@@ -59,7 +123,7 @@ public:
      */
     static AnnotatorPtr create() noexcept;
 
-    AnnotatorItemStruct* itemFromId(const std::string &id);
+    AnnotatorItemStruct itemFromId(const std::string &id);
     std::string typeFromId(const std::string &id);
     void build(const ModelPtr &model);
 

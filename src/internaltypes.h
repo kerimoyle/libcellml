@@ -50,8 +50,8 @@ using VariablePtrs = std::vector<VariablePtr>; /**< Type definition for list of 
 // using ItemInfoMap = std::multimap<std::string, std::pair<std::string, EntityPtr>>; /** Type definition for id maps. **/
 // using ItemInfo = std::pair<std::string, std::pair<std::string, EntityPtr>>; /** Type definition entries in id maps. **/
 
-using ItemsVector = std::vector<std::variant<ModelPtr, ComponentPtr, VariablePtr, UnitsPtr, ResetPtr, ImportSourcePtr>> variantCollection;
-using ItemInfoMap = std::multimap<std::string, std::pair<std::string, AnnotatorItemStruct>>; /** Type definition for id maps. **/
-using ItemInfo = std::pair<std::string, ItemsVector>; /** Type definition entries in id maps. **/
-
+// using ItemsVector = std::vector<std::variant<ModelPtr, ComponentPtr, VariablePtr, UnitsPtr, ResetPtr, ImportSourcePtr>> variantCollection;
+// using ItemInfoMap = std::map<std::string, std::multimap<std::string, AnnotatorItemStruct>>; /** Type definition for id maps. **/
+// using ItemInfo = std::pair<std::string, AnnotatorItemStruct>; /** Type definition entries in id maps. **/
+using EntityItem = std::variant<ModelPtr, ComponentPtr, VariablePtr, UnitsPtr, ResetPtr, ImportSourcePtr>;
 } // namespace libcellml
