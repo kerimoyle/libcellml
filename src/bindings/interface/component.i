@@ -100,6 +100,11 @@ resets and False otherwise.";
 %feature("docstring") libcellml::Component::clone
 "Create a copy of this component.";
 
+%feature("docstring") libcellml::Component::requiresImports
+"Determines whether this component relies on any imports.  If this component 
+or any of its encapsulated components are imported, returns @c true, 
+otherwise @c false.";
+
 #if defined(SWIGPYTHON)
     // Treat negative size_t as invalid index (instead of unknown method)
     %extend libcellml::Component {
@@ -118,9 +123,11 @@ resets and False otherwise.";
 #include "libcellml/component.h"
 %}
 
-%shared_ptr(libcellml::Component);
+%pythoncode %{
+# libCellML generated wrapper code starts here.
+%}
+
 %create_constructor(Component)
 %create_name_constructor(Component)
 
-%include "libcellml/types.h"
 %include "libcellml/component.h"

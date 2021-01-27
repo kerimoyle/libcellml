@@ -39,10 +39,10 @@ class LIBCELLML_EXPORT Model: public ComponentEntity
 #endif
 {
 public:
-    ~Model() override; /**< Destructor */
-    Model(const Model &rhs) = delete; /**< Copy constructor */
-    Model(Model &&rhs) noexcept = delete; /**< Move constructor */
-    Model &operator=(Model rhs) = delete; /**< Assignment operator */
+    ~Model() override; /**< Destructor. */
+    Model(const Model &rhs) = delete; /**< Copy constructor. */
+    Model(Model &&rhs) noexcept = delete; /**< Move constructor. */
+    Model &operator=(Model rhs) = delete; /**< Assignment operator. */
 
     /**
      * @brief Create a @c Model object.
@@ -200,7 +200,7 @@ public:
      *
      * @brief Take the units with the given @p name and return it.
      *
-     * Takes the first occurence of the units with the given name @p name and returns it.
+     * Takes the first occurrence of the units with the given name @p name and returns it.
      * If no units with name @p name is found then a @c nullptr is returned.
      *
      * @param name The name of the units to take.
@@ -279,9 +279,11 @@ public:
      * one from the model).
      *
      * If a @c Variable has units that are not found in the model
-     * then the units will remain unlinked.
+     * then the units will remain unlinked, and this will return @c false.
+     *
+     * @return @c true upon success; @c false if some units have not been linked.
      */
-    void linkUnits();
+    bool linkUnits();
 
     /**
      * @brief Test to determine if any variable units are not linked to model units.
@@ -424,13 +426,13 @@ public:
     bool hasImportSource(const ImportSourcePtr &importSrc) const;
 
 private:
-    Model(); /**< Constructor */
+    Model(); /**< Constructor. */
     explicit Model(const std::string &name); /**< Constructor with std::string parameter*/
 
     bool doAddComponent(const ComponentPtr &component) override;
 
     struct ModelImpl; /**< Forward declaration for pImpl idiom. */
-    ModelImpl *mPimpl; /**< Private member to implementation pointer */
+    ModelImpl *mPimpl; /**< Private member to implementation pointer. */
 };
 
 } // namespace libcellml

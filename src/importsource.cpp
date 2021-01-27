@@ -25,9 +25,10 @@ limitations under the License.
 #include "libcellml/types.h"
 #include "libcellml/units.h"
 
+#include "internaltypes.h"
+
 namespace libcellml {
 
-using ModelWeakPtr = std::weak_ptr<Model>; /**< Type definition for weak model pointer. */
 using ImportedEntityWeakPtr = std::weak_ptr<ImportedEntity>;
 
 /**
@@ -86,6 +87,11 @@ void ImportSource::setModel(const ModelPtr &model)
     } else {
         mPimpl->mModel = model;
     }
+}
+
+void ImportSource::removeModel()
+{
+    mPimpl->mModel.reset();
 }
 
 bool ImportSource::hasModel() const

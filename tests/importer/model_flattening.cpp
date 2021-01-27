@@ -20,6 +20,18 @@ limitations under the License.
 
 #include "test_utils.h"
 
+TEST(ModelFlattening, invalidInput)
+{
+    auto importer = libcellml::Importer::create();
+
+    auto flatModel = importer->flattenModel(nullptr);
+
+    EXPECT_EQ(nullptr, flatModel);
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ("The model is null.", importer->issue(0)->description());
+    EXPECT_EQ(libcellml::Issue::ReferenceRule::INVALID_ARGUMENT, importer->issue(0)->referenceRule());
+}
+
 TEST(ModelFlattening, modelWithoutImports)
 {
     const std::string e =
@@ -107,6 +119,7 @@ TEST(ModelFlattening, importedUnits)
     auto importer = libcellml::Importer::create();
 
     modelWithUnitsImports = importer->flattenModel(modelWithUnitsImports);
+    EXPECT_EQ(size_t(0), modelWithUnitsImports->importSourceCount());
 
     auto printer = libcellml::Printer::create();
 
@@ -195,6 +208,8 @@ TEST(ModelFlattening, importedComponent)
 
     auto importer = libcellml::Importer::create();
     modelWithComponentImport = importer->flattenModel(modelWithComponentImport);
+
+    EXPECT_EQ(size_t(0), modelWithComponentImport->importSourceCount());
 
     auto printer = libcellml::Printer::create();
 
@@ -646,9 +661,7 @@ TEST(ModelFlattening, importingComponentThatAlsoHasAnImportedComponentAsAChild)
     EXPECT_FALSE(model->hasUnresolvedImports());
 
     model = importer->flattenModel(model);
-
     auto printer = libcellml::Printer::create();
-
     auto a = printer->printModel(model);
     EXPECT_EQ(e, a);
 }
@@ -716,9 +729,13 @@ TEST(ModelFlattening, hodgkinHuxleyDefinedUsingImports)
     auto e = printer->printModel(modelNonImportVersion);
     EXPECT_EQ(e, a);
 
+    auto analyser = libcellml::Analyser::create();
+
+    analyser->analyseModel(model);
+
     auto generator = libcellml::Generator::create();
 
-    generator->processModel(model);
+    generator->setModel(analyser->model());
 
     EXPECT_EQ(fileContents("generator/hodgkin_huxley_squid_axon_model_1952/model.h"), generator->interfaceCode());
     EXPECT_EQ(fileContents("generator/hodgkin_huxley_squid_axon_model_1952/model.c"), generator->implementationCode());
@@ -729,4 +746,229 @@ TEST(ModelFlattening, hodgkinHuxleyDefinedUsingImports)
 
     EXPECT_EQ("", generator->interfaceCode());
     EXPECT_EQ(fileContents("generator/hodgkin_huxley_squid_axon_model_1952/model.py"), generator->implementationCode());
+}
+
+TEST(ModelFlattening, importedComponentsWithConnectionsToChildren)
+{
+    const std::string modelConnectionsParentChild =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<model xmlns=\"http://www.cellml.org/cellml/2.0#\" xmlns:cellml=\"http://www.cellml.org/cellml/2.0#\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" name=\"units\">\n"
+        "  <units name=\"ms\">\n"
+        "    <unit units=\"second\" prefix=\"milli\"/>\n"
+        "  </units>\n"
+        "    <units name=\"per_ms\">\n"
+        "    <unit exponent=\"-1\" prefix=\"milli\" units=\"second\"/>\n"
+        "  </units>\n"
+        "  <component name=\"gate\">\n"
+        "    <variable name=\"t\" units=\"ms\" interface=\"public_and_private\"/>\n"
+        "    <variable name=\"X\" units=\"dimensionless\" interface=\"public_and_private\"/>\n"
+        "  </component>\n"
+        "  <component name=\"gateEquations\">\n"
+        "    <variable name=\"t\" units=\"ms\" interface=\"public\"/>\n"
+        "    <variable name=\"alpha_X\" units=\"per_ms\" interface=\"public\"/>\n"
+        "    <variable name=\"X\" units=\"dimensionless\" interface=\"public\"/>\n"
+        "  </component>\n"
+        "  <connection component_1=\"gate\" component_2=\"gateEquations\">\n"
+        "    <map_variables variable_1=\"t\" variable_2=\"t\"/>\n"
+        "    <map_variables variable_1=\"X\" variable_2=\"X\"/>\n"
+        "  </connection>\n"
+        "  <encapsulation>\n"
+        "    <component_ref component=\"gate\">\n"
+        "      <component_ref component=\"gateEquations\"/>\n"
+        "    </component_ref>\n"
+        "  </encapsulation>\n"
+        "</model>\n";
+
+    const std::string importingModel =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<model name=\"importer_of_units\" xmlns=\"http://www.cellml.org/cellml/2.0#\">\n"
+        "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"GateModel.cellml\">\n"
+        "    <component component_ref=\"gateEquations\" name=\"importedGateH\"/>\n"
+        "  </import>\n"
+        "  <component name=\"hGateEquations\">\n"
+        "    <variable name=\"V\" units=\"mV\" interface=\"public\"/>\n"
+        "  </component>\n"
+        "  <encapsulation>\n"
+        "    <component_ref component=\"hGateEquations\">\n"
+        "      <component_ref component=\"importedGateH\"/>\n"
+        "    </component_ref>\n"
+        "  </encapsulation>\n"
+        "</model>\n";
+
+    const std::string e =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<model xmlns=\"http://www.cellml.org/cellml/2.0#\" name=\"importer_of_units\">\n"
+        "  <units name=\"ms\">\n"
+        "    <unit prefix=\"milli\" units=\"second\"/>\n"
+        "  </units>\n"
+        "  <units name=\"per_ms\">\n"
+        "    <unit exponent=\"-1\" prefix=\"milli\" units=\"second\"/>\n"
+        "  </units>\n"
+        "  <component name=\"hGateEquations\">\n"
+        "    <variable name=\"V\" units=\"mV\" interface=\"public\"/>\n"
+        "  </component>\n"
+        "  <component name=\"importedGateH\">\n"
+        "    <variable name=\"t\" units=\"ms\" interface=\"public\"/>\n"
+        "    <variable name=\"alpha_X\" units=\"per_ms\" interface=\"public\"/>\n"
+        "    <variable name=\"X\" units=\"dimensionless\" interface=\"public\"/>\n"
+        "  </component>\n"
+        "  <encapsulation>\n"
+        "    <component_ref component=\"hGateEquations\">\n"
+        "      <component_ref component=\"importedGateH\"/>\n"
+        "    </component_ref>\n"
+        "  </encapsulation>\n"
+        "</model>\n";
+
+    auto parser = libcellml::Parser::create();
+
+    auto modelUsingImports = parser->parseModel(importingModel);
+    auto modelComponentDefinition = parser->parseModel(modelConnectionsParentChild);
+
+    EXPECT_TRUE(modelUsingImports->hasUnresolvedImports());
+
+    auto component = modelUsingImports->component(0)->component(0);
+    auto importSource = component->importSource();
+    importSource->setModel(modelComponentDefinition);
+
+    EXPECT_FALSE(modelUsingImports->hasUnresolvedImports());
+
+    auto importer = libcellml::Importer::create();
+
+    modelUsingImports = importer->flattenModel(modelUsingImports);
+    EXPECT_EQ(size_t(0), modelUsingImports->importSourceCount());
+
+    auto printer = libcellml::Printer::create();
+
+    auto a = printer->printModel(modelUsingImports);
+    EXPECT_EQ(e, a);
+}
+
+TEST(ModelFlattening, resolveFlattenCircularImportsComponents)
+{
+    const std::string resolveError =
+        "Cyclic dependencies were found when attempting to resolve components in model 'importExample2b'. The dependency loop is:\n"
+        " - component 'sideB' is imported from 'shared' in 'circularImport1.cellml';\n"
+        " - component 'shared' is imported from 'circular2' in 'circularImport2.cellml';\n"
+        " - component 'circular2' is imported from 'shared' in 'circularImport1.cellml'; and\n"
+        " - component 'shared' is imported from 'circular2' in 'circularImport2.cellml'.";
+    const std::string flattenError =
+        "Cyclic dependencies were found when attempting to flatten components in model 'importExample2b'. The dependency loop is:\n"
+        " - component 'sideB' is imported from 'shared' in 'circularImport1.cellml';\n"
+        " - component 'shared' is imported from 'circular2' in 'circularImport2.cellml';\n"
+        " - component 'circular2' is imported from 'shared' in 'circularImport1.cellml'; and\n"
+        " - component 'shared' is imported from 'circular2' in 'circularImport2.cellml'.";
+
+    auto parser = libcellml::Parser::create();
+    auto originalModel = parser->parseModel(fileContents("modelflattening/importExample2b.cellml"));
+    auto importer = libcellml::Importer::create();
+
+    // Resolve the imports.
+    importer->resolveImports(originalModel, resourcePath("modelflattening/"));
+
+    // Check for issues: expect one reporting the circular import.
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ(resolveError, importer->issue(0)->description());
+
+    // Create a flattened version to demonstrate the diagnostics.
+    importer->removeAllIssues();
+    auto flatModel = importer->flattenModel(originalModel);
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ(flattenError, importer->issue(0)->description());
+    EXPECT_EQ(nullptr, flatModel);
+}
+
+TEST(ModelFlattening, resolveFlattenCircularImportsUnits)
+{
+    const std::string resolveError =
+        "Cyclic dependencies were found when attempting to resolve units in model 'importExampleUnits'. The dependency loop is:\n"
+        " - units 'sideB' is imported from 'myChildIsCircular' in 'circularImport1units.cellml';\n"
+        " - units 'shared' is imported from 'circular2' in 'circularImport2units.cellml';\n"
+        " - units 'circular2' is imported from 'shared' in 'circularImport1units.cellml'; and\n"
+        " - units 'shared' is imported from 'circular2' in 'circularImport2units.cellml'.";
+    const std::string flattenError =
+        "Cyclic dependencies were found when attempting to flatten units in model 'importExampleUnits'. The dependency loop is:\n"
+        " - units 'sideB' is imported from 'myChildIsCircular' in 'circularImport1units.cellml';\n"
+        " - units 'shared' is imported from 'circular2' in 'circularImport2units.cellml';\n"
+        " - units 'circular2' is imported from 'shared' in 'circularImport1units.cellml'; and\n"
+        " - units 'shared' is imported from 'circular2' in 'circularImport2units.cellml'.";
+
+    auto parser = libcellml::Parser::create();
+    auto originalModel = parser->parseModel(fileContents("modelflattening/importExampleUnits.cellml"));
+    auto importer = libcellml::Importer::create();
+
+    // Resolve the imports.
+    importer->resolveImports(originalModel, resourcePath("modelflattening/"));
+
+    // Check for issues: expect one reporting the circular import.
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ(resolveError, importer->issue(0)->description());
+
+    // Create a flattened version to demonstrate the diagnostics.
+    importer->removeAllIssues();
+    auto flatModel = importer->flattenModel(originalModel);
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ(flattenError, importer->issue(0)->description());
+    EXPECT_EQ(nullptr, flatModel);
+}
+
+TEST(ModelFlattening, resolveFlattenMissingModel)
+{
+    const std::string expectedError = "Component 'left' requires a model imported from 'diamond_point.cellml' which is not available in the importer.";
+    auto parser = libcellml::Parser::create();
+    auto originalModel = parser->parseModel(fileContents("importer/diamond.cellml"));
+    auto importer = libcellml::Importer::create();
+
+    // Resolve imports.
+    importer->resolveImports(originalModel, resourcePath("importer/"));
+    EXPECT_EQ(size_t(0), importer->issueCount());
+
+    // Corrupt the importer library by removing a model that's required.
+    importer->replaceModel(nullptr, importer->key(1));
+
+    // Attempt to flatten the model.
+    auto flatModel = importer->flattenModel(originalModel);
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ(expectedError, importer->issue(0)->description());
+}
+
+TEST(ModelFlattening, resolveFlattenMissingComponent)
+{
+    const std::string e = "Component 'left' imports a component named 'pointyBit' from the model imported from 'diamond_point.cellml'. The component could not be found.";
+    auto parser = libcellml::Parser::create();
+    auto originalModel = parser->parseModel(fileContents("importer/diamond.cellml"));
+    auto importer = libcellml::Importer::create();
+
+    // Resolve imports.
+    importer->resolveImports(originalModel, resourcePath("importer/"));
+    EXPECT_EQ(size_t(0), importer->issueCount());
+
+    // Corrupt the importer library by removing a component from a model that's required.
+    auto pointModel = importer->library(1);
+    pointModel->removeComponent("pointyBit");
+
+    // Attempt to flatten the model.
+    auto flatModel = importer->flattenModel(originalModel);
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ(e, importer->issue(0)->description());
+}
+
+TEST(ModelFlattening, resolveFlattenMissingUnits)
+{
+    const std::string e = "Units 'units1_imported' imports units named 'units1' from the model imported from 'units_source.cellml'. The units could not be found.";
+    auto parser = libcellml::Parser::create();
+    auto originalModel = parser->parseModel(fileContents("importer/units_imported.cellml"));
+    auto importer = libcellml::Importer::create();
+
+    // Resolve imports.
+    importer->resolveImports(originalModel, resourcePath("importer/"));
+    EXPECT_EQ(size_t(0), importer->issueCount());
+
+    // Corrupt the importer library by renaming units from a model that's required.
+    auto importedModel = importer->library(0);
+    importedModel->units(0)->setName("someOtherName");
+
+    // Attempt to flatten the model.
+    auto flatModel = importer->flattenModel(originalModel);
+    EXPECT_EQ(size_t(1), importer->issueCount());
+    EXPECT_EQ(e, importer->issue(0)->description());
 }

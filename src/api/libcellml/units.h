@@ -28,7 +28,9 @@ limitations under the License.
 // macro gets defined for backward compatibility, so we can safely undefine it.
 // (See https://stackoverflow.com/questions/2774171/what-is-far-pascal for more
 // information.)
-#undef PASCAL
+#ifdef PASCAL
+#    undef PASCAL
+#endif
 
 #ifndef SWIG
 template class LIBCELLML_EXPORT std::weak_ptr<libcellml::Units>;
@@ -47,10 +49,10 @@ class LIBCELLML_EXPORT Units: public NamedEntity, public ImportedEntity
 #endif
 {
 public:
-    ~Units() override; /**< Destructor */
-    Units(const Units &rhs) = delete; /**< Copy constructor */
-    Units(Units &&rhs) noexcept = delete; /**< Move constructor */
-    Units &operator=(Units rhs) = delete; /**< Assignment operator */
+    ~Units() override; /**< Destructor. */
+    Units(const Units &rhs) = delete; /**< Copy constructor. */
+    Units(Units &&rhs) noexcept = delete; /**< Move constructor. */
+    Units &operator=(Units rhs) = delete; /**< Assignment operator. */
 
     /**
      * @brief Create a @c Units object.
@@ -493,21 +495,44 @@ public:
     UnitsPtr clone() const;
 
     /**
-     * @brief Set the import source of these units.
+     * @brief Set the id of the unit at the given @p index.
      *
+     *  The operation will return @c true if the id is assigned, or @c false
+     *  if the @p index is out of range.
+     *
+     * @return @c true if successful, @c false otherwise.
+     */
+    bool setUnitId(size_t index, const std::string &id) const;
+
+    /**
+     * @brief Return the id string of the unit at the given @p index.
+     *
+     * Return the id string of the unit at the given @p index.  If the
+     * given index is out of range then the empty string is returned.
+     *
+     * @return An id string.
+     */
+    std::string unitId(size_t index);
+
+private:
+    Units(); /**< Constructor. */
+    explicit Units(const std::string &name); /**< Constructor with std::string parameter*/
+
+    /**
+     * @brief Set the import source of this units.
+     *
+     * Virtual method implementing ImportedEntity::setImportSource, @private.
      * If these units are already located in a Model instance, then the
      * import source is added to the Model too.
      *
-     * @param importSource The @c ImportSourcePtr to add to this @c Units item.
+     * @param importSource The @c ImportSourcePtr to add to this @ref Units.
      */
-    void setImportSource(ImportSourcePtr &importSource);
+    void doSetImportSource(const ImportSourcePtr &importSource) override;
 
-private:
-    Units(); /**< Constructor */
-    explicit Units(const std::string &name); /**< Constructor with std::string parameter*/
+    bool doIsResolved() const override; /**< Virtual method for implementing isResolved, @private. */
 
     struct UnitsImpl; /**< Forward declaration for pImpl idiom. */
-    UnitsImpl *mPimpl; /**< Private member to implementation pointer */
+    UnitsImpl *mPimpl; /**< Private member to implementation pointer. */
 };
 
 } // namespace libcellml

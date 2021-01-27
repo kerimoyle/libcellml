@@ -32,8 +32,6 @@ struct ImportedEntity::ImportedEntityImpl
 ImportedEntity::ImportedEntity()
     : mPimpl(new ImportedEntityImpl())
 {
-    mPimpl->mImportSource.reset();
-    mPimpl->mImportReference = "";
 }
 
 ImportedEntity::~ImportedEntity()
@@ -53,6 +51,11 @@ ImportSourcePtr ImportedEntity::importSource() const
 
 void ImportedEntity::setImportSource(const ImportSourcePtr &importSource)
 {
+    doSetImportSource(importSource);
+}
+
+void ImportedEntity::doSetImportSource(const ImportSourcePtr &importSource)
+{
     mPimpl->mImportSource = importSource;
 }
 
@@ -64,6 +67,11 @@ std::string ImportedEntity::importReference() const
 void ImportedEntity::setImportReference(const std::string &reference)
 {
     mPimpl->mImportReference = reference;
+}
+
+bool ImportedEntity::isResolved() const
+{
+    return doIsResolved();
 }
 
 } // namespace libcellml

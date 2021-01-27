@@ -417,23 +417,35 @@ public:
     ComponentPtr clone() const;
 
     /**
-     * @brief Set the import source of this component.
+     * @brief Determines whether this component or its descendants
+     *        contain imported components.
      *
-     * If this component is already located in a Model instance, then the
-     * import source is added to the Model too.
+     * Determines whether this component or its descendants contain
+     * imported components.
      *
-     * @param importSource The @c ImportSourcePtr to add to this @c Component.
+     * @return @c true when imports are required, @c false otherwise.
      */
-    void setImportSource(ImportSourcePtr &importSource);
+    bool requiresImports();
 
 private:
     Component(); /**< Constructor @private*/
-    explicit Component(const std::string &name); /**< Constructor named @private */
+    explicit Component(const std::string &name); /**< Constructor named, @private. */
 
-    bool doAddComponent(const ComponentPtr &component) override; /**< Virtual method for implementing addComponent, @private */
+    bool doAddComponent(const ComponentPtr &component) override; /**< Virtual method for implementing addComponent, @private. */
 
-    struct ComponentImpl; /**< Forward declaration for pImpl idiom. @private */
-    ComponentImpl *mPimpl; /**< Private member to implementation pointer. @private */
+    /**
+     * @brief Set the import source of this component.
+     *
+     * Virtual method implementing ImportedEntity::setImportSource, @private.
+     *
+     * @param importSource The @c ImportSourcePtr to add to this @c Component.
+     */
+    void doSetImportSource(const ImportSourcePtr &importSource) override;
+
+    bool doIsResolved() const override; /**< Virtual method for implementing isResolved, @private. */
+
+    struct ComponentImpl; /**< Forward declaration for pImpl idiom, @private. */
+    ComponentImpl *mPimpl; /**< Private member to implementation pointer, @private. */
 };
 
 } // namespace libcellml

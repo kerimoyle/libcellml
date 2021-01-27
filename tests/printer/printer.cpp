@@ -20,6 +20,44 @@ limitations under the License.
 
 #include <libcellml>
 
+const std::string MATH_HEADER = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\" xmlns:cellml=\"http://www.cellml.org/cellml/2.0#\">\n";
+const std::string MATH_FOOTER = "</math>\n";
+const std::string PRETTY_MODEL_STRING =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    "<model xmlns=\"http://www.cellml.org/cellml/2.0#\" name=\"model\">\n"
+    "  <component name=\"component\">\n"
+    "    <math xmlns=\"http://www.w3.org/1998/Math/MathML\" xmlns:cellml=\"http://www.cellml.org/cellml/2.0#\">\n"
+    "      <apply>\n"
+    "        <eq/>\n"
+    "        <apply>\n"
+    "          <diff/>\n"
+    "          <bvar>\n"
+    "            <ci>t</ci>\n"
+    "          </bvar>\n"
+    "          <ci>X</ci>\n"
+    "        </apply>\n"
+    "        <apply>\n"
+    "          <minus/>\n"
+    "          <apply>\n"
+    "            <times/>\n"
+    "            <ci>alpha_X</ci>\n"
+    "            <apply>\n"
+    "              <minus/>\n"
+    "              <cn cellml:units=\"dimensionless\">1</cn>\n"
+    "              <ci>X</ci>\n"
+    "            </apply>\n"
+    "          </apply>\n"
+    "          <apply>\n"
+    "            <times/>\n"
+    "            <ci>beta_X</ci>\n"
+    "            <ci>X</ci>\n"
+    "          </apply>\n"
+    "        </apply>\n"
+    "      </apply>\n"
+    "    </math>\n"
+    "  </component>\n"
+    "</model>\n";
+
 TEST(Printer, printNullptrModel)
 {
     const std::string e;
@@ -216,7 +254,7 @@ TEST(Printer, printModelWithImports)
 {
     const std::string e_model =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-        "<model xmlns=\"http://www.cellml.org/cellml/2.0#\" name=\"sin_approximations_import\" id=\"sin_approximations_import\">\n"
+        "<model xmlns=\"http://www.cellml.org/cellml/2.0#\" name=\"sin_approximations_import\">\n"
         "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"sin.xml\">\n"
         "    <component component_ref=\"sin\" name=\"actual_sin\"/>\n"
         "  </import>\n"
@@ -226,12 +264,12 @@ TEST(Printer, printModelWithImports)
         "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"parabolic_approx_sin.xml\">\n"
         "    <component component_ref=\"sin\" name=\"parabolic_approx_sin\"/>\n"
         "  </import>\n"
-        "  <component name=\"main\" id=\"main\">\n"
-        "    <variable name=\"x\" units=\"dimensionless\" interface=\"public_and_private\" id=\"x\"/>\n"
-        "    <variable name=\"sin1\" units=\"dimensionless\" interface=\"public_and_private\" id=\"sin\"/>\n"
-        "    <variable name=\"sin2\" units=\"dimensionless\" interface=\"public_and_private\" id=\"deriv_approx\"/>\n"
-        "    <variable name=\"deriv_approx_initial_value\" units=\"dimensionless\" initial_value=\"0\" interface=\"public_and_private\" id=\"deriv_approx_initial_value\"/>\n"
-        "    <variable name=\"sin3\" units=\"dimensionless\" interface=\"public_and_private\" id=\"parabolic_approx\"/>\n"
+        "  <component name=\"main\">\n"
+        "    <variable name=\"x\" units=\"dimensionless\" interface=\"public_and_private\"/>\n"
+        "    <variable name=\"sin1\" units=\"dimensionless\" interface=\"public_and_private\"/>\n"
+        "    <variable name=\"sin2\" units=\"dimensionless\" interface=\"public_and_private\"/>\n"
+        "    <variable name=\"deriv_approx_initial_value\" units=\"dimensionless\" initial_value=\"0\" interface=\"public_and_private\"/>\n"
+        "    <variable name=\"sin3\" units=\"dimensionless\" interface=\"public_and_private\"/>\n"
         "    <variable name=\"C\" units=\"dimensionless\" initial_value=\"0.75\" interface=\"public_and_private\"/>\n"
         "  </component>\n"
         "  <connection component_1=\"main\" component_2=\"actual_sin\">\n"
@@ -460,7 +498,7 @@ TEST(Printer, printModelWithAutomaticIdsSomeExistingNoMaths)
 {
     const std::string in = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                            "<model xmlns=\"http://www.cellml.org/cellml/2.0#\" name=\"everything\" id=\"model\">\n"
-                           "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"some-other-model.xml\" id=\"import_2\">\n"
+                           "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"some-other-model.xml\" id=\"import_1\">\n"
                            "    <component component_ref=\"a_component_in_that_model\" name=\"component1\" id=\"component_2\"/>\n"
                            "  </import>\n"
                            "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"some-other-model.xml\" id=\"i_was_skipped_before\">\n"
@@ -518,7 +556,7 @@ TEST(Printer, printModelWithAutomaticIdsSomeExistingNoMaths)
                            "</model>\n";
     const std::string expectedOutString = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                                           "<model xmlns=\"http://www.cellml.org/cellml/2.0#\" name=\"everything\" id=\"model\">\n"
-                                          "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"some-other-model.xml\" id=\"import_2\">\n"
+                                          "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"some-other-model.xml\" id=\"import_1\">\n"
                                           "    <component component_ref=\"a_component_in_that_model\" name=\"component1\" id=\"component_2\"/>\n"
                                           "  </import>\n"
                                           "  <import xmlns:xlink=\"http://www.w3.org/1999/xlink\" xlink:href=\"some-other-model.xml\" id=\"i_was_skipped_before\">\n"
@@ -767,4 +805,176 @@ TEST(Printer, noChangeToManualIds)
     auto model = parser->parseModel(in);
     auto printer = libcellml::Printer::create();
     EXPECT_EQ(in, printer->printModel(model, true));
+}
+
+TEST(Printer, prettyPrintSpacesNewlines)
+{
+    auto printer = libcellml::Printer::create();
+    auto model = libcellml::Model::create();
+    model->setName("model");
+
+    auto component1 = libcellml::Component::create("component");
+    model->addComponent(component1);
+    const std::string equation1 =
+        "  <apply><eq/>\n"
+        "    <apply><diff/>\n"
+        "      <bvar><ci>t</ci></bvar>\n"
+        "      <ci>X</ci>\n"
+        "    </apply>\n"
+        "    <apply><minus/>\n"
+        "      <apply><times/>\n"
+        "        <ci>alpha_X</ci>\n"
+        "        <apply><minus/>\n"
+        "          <cn cellml:units=\"dimensionless\">1</cn>\n"
+        "          <ci>X</ci>\n"
+        "        </apply>\n"
+        "      </apply>\n"
+        "      <apply><times/>\n"
+        "        <ci>beta_X</ci>\n"
+        "        <ci>X</ci>\n"
+        "      </apply>\n"
+        "    </apply>\n"
+        "  </apply>\n";
+    component1->setMath(MATH_HEADER);
+    component1->appendMath(equation1);
+    component1->appendMath(MATH_FOOTER);
+
+    EXPECT_EQ(PRETTY_MODEL_STRING, printer->printModel(model));
+}
+
+TEST(Printer, prettyPrintNoSpacesNewlines)
+{
+    auto printer = libcellml::Printer::create();
+    auto model = libcellml::Model::create();
+    model->setName("model");
+
+    auto component2 = libcellml::Component::create("component");
+    model->addComponent(component2);
+    const std::string equation2 =
+        "<apply><eq/>\n"
+        "<apply><diff/>\n"
+        "<bvar><ci>t</ci></bvar>\n"
+        "<ci>X</ci>\n"
+        "</apply>\n"
+        "<apply><minus/>\n"
+        "<apply><times/>\n"
+        "<ci>alpha_X</ci>\n"
+        "<apply><minus/>\n"
+        "<cn cellml:units=\"dimensionless\">1</cn>\n"
+        "<ci>X</ci>\n"
+        "</apply>\n"
+        "</apply>\n"
+        "<apply><times/>\n"
+        "<ci>beta_X</ci>\n"
+        "<ci>X</ci>\n"
+        "</apply>\n"
+        "</apply>\n"
+        "</apply>\n";
+
+    component2->setMath(MATH_HEADER);
+    component2->appendMath(equation2);
+    component2->appendMath(MATH_FOOTER);
+
+    EXPECT_EQ(PRETTY_MODEL_STRING, printer->printModel(model));
+}
+
+TEST(Printer, prettyPrintNoSpacesNoNewlines)
+{
+    auto printer = libcellml::Printer::create();
+    auto model = libcellml::Model::create();
+    model->setName("model");
+
+    auto component3 = libcellml::Component::create("component");
+    model->addComponent(component3);
+    const std::string equation3 =
+        "<apply><eq/>"
+        "<apply><diff/>"
+        "<bvar><ci>t</ci></bvar>"
+        "<ci>X</ci>"
+        "</apply>"
+        "<apply><minus/>"
+        "<apply><times/>"
+        "<ci>alpha_X</ci>"
+        "<apply><minus/>"
+        "<cn cellml:units=\"dimensionless\">1</cn>"
+        "<ci>X</ci>"
+        "</apply>"
+        "</apply>"
+        "<apply><times/>"
+        "<ci>beta_X</ci>"
+        "<ci>X</ci>"
+        "</apply>"
+        "</apply>"
+        "</apply>";
+    component3->setMath(MATH_HEADER);
+    component3->appendMath(equation3);
+    component3->appendMath(MATH_FOOTER);
+    EXPECT_EQ(PRETTY_MODEL_STRING, printer->printModel(model));
+}
+
+TEST(Printer, prettyPrintOneString)
+{
+    auto printer = libcellml::Printer::create();
+    auto model = libcellml::Model::create();
+    model->setName("model");
+    auto component4 = libcellml::Component::create("component");
+    model->addComponent(component4);
+    const std::string equation4 =
+        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\" xmlns:cellml=\"http://www.cellml.org/cellml/2.0#\"><apply><eq/><apply><diff/><bvar><ci>t</ci></bvar><ci>X</ci></apply><apply><minus/><apply><times/><ci>alpha_X</ci><apply><minus/><cn cellml:units=\"dimensionless\">1</cn><ci>X</ci></apply></apply><apply><times/><ci>beta_X</ci><ci>X</ci></apply></apply></apply></math>";
+    component4->setMath(equation4);
+
+    EXPECT_EQ(PRETTY_MODEL_STRING, printer->printModel(model));
+}
+
+TEST(Printer, prettyPrintRandom)
+{
+    auto printer = libcellml::Printer::create();
+    auto model = libcellml::Model::create();
+    model->setName("model");
+
+    auto component5 = libcellml::Component::create("component");
+    model->addComponent(component5);
+    const std::string equation5 =
+        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\" xmlns:cellml=\"http://www.cellml.org/cellml/2.0#\"><apply>          "
+        "<eq/><apply><diff/><bvar><ci>   t\n\n\t\t</ci></bvar>\n\n<ci>X</ci></apply>"
+        "<apply><minus/><apply><times/><ci>     alpha_X</ci>             \n<apply><minus/>\n\n\n"
+        "<cn cellml:units=\"dimensionless\">1</cn><ci>X     </ci></apply></apply><apply><times/>"
+        "<ci>beta_X</ci><ci>X</ci></apply>\n\n\n</apply></apply></math>";
+    component5->setMath(equation5);
+
+    EXPECT_EQ(PRETTY_MODEL_STRING, printer->printModel(model));
+}
+
+TEST(Printer, prettyPrintSpacesWrongPlaceNewlines)
+{
+    auto printer = libcellml::Printer::create();
+    auto model = libcellml::Model::create();
+    model->setName("model");
+
+    auto component6 = libcellml::Component::create("component");
+    model->addComponent(component6);
+    const std::string equation6 =
+        "<apply><eq/>\n"
+        "  <apply><diff/>\n"
+        "    <bvar><ci>t</ci></bvar>\n"
+        "    <ci>X</ci>\n"
+        "  </apply>\n"
+        "  <apply><minus/>\n"
+        "    <apply><times/>\n"
+        "      <ci>alpha_X</ci>\n"
+        "      <apply><minus/>\n"
+        "        <cn cellml:units=\"dimensionless\">1</cn>\n"
+        "        <ci>X</ci>\n"
+        "      </apply>\n"
+        "    </apply>\n"
+        "    <apply><times/>\n"
+        "      <ci>beta_X</ci>\n"
+        "      <ci>X</ci>\n"
+        "    </apply>\n"
+        "  </apply>\n"
+        "</apply>\n";
+    component6->setMath(MATH_HEADER);
+    component6->appendMath(equation6);
+    component6->appendMath(MATH_FOOTER);
+    EXPECT_EQ(PRETTY_MODEL_STRING, printer->printModel(model));
 }

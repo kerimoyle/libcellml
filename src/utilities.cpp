@@ -27,6 +27,8 @@ limitations under the License.
 
 #include "libcellml/component.h"
 #include "libcellml/importsource.h"
+#include "libcellml/issue.h"
+#include "libcellml/logger.h"
 #include "libcellml/model.h"
 #include "libcellml/namedentity.h"
 #include "libcellml/reset.h"
@@ -114,26 +116,26 @@ bool isCellMLExponent(const std::string &candidate)
     return isCellMLInteger(candidate);
 }
 
-std::vector<size_t> findOccurences(const std::string &candidate, const std::string &sub)
+std::vector<size_t> findOccurrences(const std::string &candidate, const std::string &sub)
 {
-    std::vector<size_t> occurences;
+    std::vector<size_t> occurrences;
     size_t pos = candidate.find(sub, 0);
     while (pos != std::string::npos) {
-        occurences.push_back(pos);
+        occurrences.push_back(pos);
         pos = candidate.find(sub, pos + 1);
     }
-    return occurences;
+    return occurrences;
 }
 
 bool isCellMLBasicReal(const std::string &candidate)
 {
     if (!candidate.empty()) {
-        std::vector<size_t> decimalOccurences = findOccurences(candidate, ".");
-        if (decimalOccurences.size() < 2) {
+        std::vector<size_t> decimalOccurrences = findOccurrences(candidate, ".");
+        if (decimalOccurrences.size() < 2) {
             bool beginsMinus = *candidate.begin() == '-';
             std::string numbersOnlyCandidate = candidate;
-            if (decimalOccurences.size() == 1) {
-                numbersOnlyCandidate.erase(decimalOccurences.at(0), 1);
+            if (decimalOccurrences.size() == 1) {
+                numbersOnlyCandidate.erase(decimalOccurrences.at(0), 1);
             }
             if (beginsMinus) {
                 numbersOnlyCandidate.erase(0, 1);
@@ -149,15 +151,15 @@ bool isCellMLReal(const std::string &candidate)
     bool isReal = false;
     if (!candidate.empty()) {
         std::string normalisedCandidate = candidate;
-        std::vector<size_t> eOccurences = findOccurences(candidate, "E");
-        for (const auto &ePos : eOccurences) {
+        std::vector<size_t> eOccurrences = findOccurrences(candidate, "E");
+        for (const auto &ePos : eOccurrences) {
             normalisedCandidate.replace(ePos, 1, "e");
         }
-        std::vector<size_t> lowerEOccurences = findOccurences(normalisedCandidate, "e");
-        size_t eIndicatorCount = lowerEOccurences.size();
+        std::vector<size_t> lowerEOccurrences = findOccurrences(normalisedCandidate, "e");
+        size_t eIndicatorCount = lowerEOccurrences.size();
         if (eIndicatorCount < 2) {
             if (eIndicatorCount == 1) {
-                size_t ePos = lowerEOccurences.at(0);
+                size_t ePos = lowerEOccurrences.at(0);
                 std::string significand = normalisedCandidate.substr(0, ePos);
                 std::string exponent = normalisedCandidate.substr(ePos + 1, std::string::npos);
                 if (isCellMLBasicReal(significand) && isCellMLExponent(exponent)) {
@@ -415,23 +417,6 @@ std::string sha1(const std::string &string)
     return result.str();
 }
 
-ModelPtr owningModel(const EntityConstPtr &entity)
-{
-    auto model = std::dynamic_pointer_cast<Model>(entity->parent());
-    auto component = owningComponent(entity);
-    while ((model == nullptr) && (component != nullptr) && component->parent()) {
-        model = std::dynamic_pointer_cast<Model>(component->parent());
-        component = owningComponent(component);
-    }
-
-    return model;
-}
-
-ComponentPtr owningComponent(const EntityConstPtr &entity)
-{
-    return std::dynamic_pointer_cast<Component>(entity->parent());
-}
-
 bool isStandardUnitName(const std::string &name)
 {
     return standardUnitsList.count(name) != 0;
@@ -468,6 +453,12 @@ size_t getVariableIndexInComponent(const ComponentPtr &component, const Variable
     return index;
 }
 
+bool areEquivalentVariables(const VariablePtr &variable1,
+                            const VariablePtr &variable2)
+{
+    return (variable1 == variable2) || variable1->hasEquivalentVariable(variable2, true);
+}
+
 bool isEntityChildOf(const EntityPtr &entity1, const EntityPtr &entity2)
 {
     return entity1->parent() == entity2;
@@ -487,7 +478,7 @@ using PublicPrivateRequiredPair = std::pair<bool, bool>;
  * Determine whether a public and/or private interface is required for the given @p variable.  Returns
  * a pair of booleans where the first item in the pair indicates whether a public interface is required,
  * the second item in the pair indicates whether a private interface is required, and if both items
- * in the pair are @c false then this indicates an error has occured and the interface type cannot be
+ * in the pair are @c false then this indicates an error has occurred and the interface type cannot be
  * determined.
  *
  * @param variable The variable to detect the interface type required.
@@ -716,9 +707,13 @@ EquivalenceMap rebaseEquivalenceMap(const EquivalenceMap &map, const IndexStack 
         if (!rebasedKey.empty()) {
             auto vector = entry.second;
             std::vector<IndexStack> rebasedVector;
-            for (const auto &stack : vector) {
+            for (auto stack : vector) {
+                // Temporarily remove the variable index whilst we rebase the component part of the stack.
+                size_t variableIndex = stack.back();
+                stack.pop_back();
                 auto rebasedTarget = rebaseIndexStack(stack, originStack, destinationStack);
                 if (!rebasedTarget.empty()) {
+                    rebasedTarget.push_back(variableIndex);
                     rebasedVector.push_back(rebasedTarget);
                 }
             }
@@ -821,6 +816,18 @@ std::vector<UnitsPtr> unitsUsed(const ModelPtr &model, const ComponentPtr &compo
     return usedUnits;
 }
 
+NameList unitsNamesUsed(const ComponentPtr &component)
+{
+    auto unitNames = findComponentCnUnitsNames(component);
+    for (size_t i = 0; i < component->variableCount(); ++i) {
+        auto u = component->variable(i)->units();
+        if ((u != nullptr) && !isStandardUnitName(u->name())) {
+            unitNames.push_back(u->name());
+        }
+    }
+    return unitNames;
+}
+
 IndexStack reverseEngineerIndexStack(const VariablePtr &variable)
 {
     IndexStack indexStack;
@@ -903,6 +910,7 @@ void applyEquivalenceMapToModel(const EquivalenceMap &map, const ModelPtr &model
         }
     }
 }
+
 void listComponentIds(const ComponentPtr &component, IdList &idList)
 {
     std::string id = component->id();
@@ -1035,6 +1043,128 @@ std::string makeUniqueId(IdList &idList)
     }
     idList.insert(id);
     return id;
+}
+
+ConnectionMap createConnectionMap(const VariablePtr &variable1, const VariablePtr &variable2)
+{
+    ConnectionMap map;
+
+    ComponentPtr component1 = owningComponent(variable1);
+    ComponentPtr component2 = owningComponent(variable2);
+    if ((component1 != nullptr) && (component2 != nullptr)) {
+        for (size_t i = 0; i < component1->variableCount(); ++i) {
+            auto v = component1->variable(i);
+            for (const auto &vEquiv : equivalentVariables(v)) {
+                if (owningComponent(vEquiv) == component2) {
+                    map.insert(std::make_pair(v, vEquiv));
+                }
+            }
+        }
+    }
+
+    return map;
+}
+
+void recursiveEquivalentVariables(const VariablePtr &variable, std::vector<VariablePtr> &equivalentVariables)
+{
+    for (size_t i = 0; i < variable->equivalentVariableCount(); ++i) {
+        VariablePtr equivalentVariable = variable->equivalentVariable(i);
+
+        if (std::find(equivalentVariables.begin(), equivalentVariables.end(), equivalentVariable) == equivalentVariables.end()) {
+            equivalentVariables.push_back(equivalentVariable);
+
+            recursiveEquivalentVariables(equivalentVariable, equivalentVariables);
+        }
+    }
+}
+
+std::vector<VariablePtr> equivalentVariables(const VariablePtr &variable)
+{
+    std::vector<VariablePtr> res = {variable};
+
+    recursiveEquivalentVariables(variable, res);
+
+    return res;
+}
+
+bool linkComponentVariableUnits(const ComponentPtr &component, std::vector<IssuePtr> &issueList)
+{
+    bool status = true;
+    for (size_t index = 0; index < component->variableCount(); ++index) {
+        auto v = component->variable(index);
+        auto u = v->units();
+
+        if (u != nullptr) {
+            auto model = owningModel(u);
+            if (model == owningModel(v)) {
+                // Units are already linked, and exist in this model.
+                continue;
+            }
+            if ((model == nullptr) && !isStandardUnit(u)) {
+                model = owningModel(component);
+                if (model->hasUnits(u->name())) {
+                    v->setUnits(model->units(u->name()));
+                } else {
+                    auto issue = Issue::create();
+                    issue->setDescription("Model does not contain the units '" + u->name() + "' required by variable '" + v->name() + "' in component '" + component->name() + "'.");
+                    issue->setLevel(Issue::Level::WARNING);
+                    issue->setVariable(v);
+                    issueList.push_back(issue);
+                    status = false;
+                }
+            } else if (model != nullptr) {
+                auto issue = Issue::create();
+                issue->setDescription("The units '" + u->name() + "' assigned to variable '" + v->name() + "' in component '" + component->name() + "' belong to a different model, '" + model->name() + "'.");
+                issue->setLevel(Issue::Level::WARNING);
+                issue->setVariable(v);
+                issueList.push_back(issue);
+                status = false;
+            }
+        }
+    }
+    return status;
+}
+
+bool traverseComponentEntityTreeLinkingUnits(const ComponentEntityPtr &componentEntity)
+{
+    std::vector<IssuePtr> issueList;
+    return traverseComponentEntityTreeLinkingUnits(componentEntity, issueList);
+}
+
+bool traverseComponentEntityTreeLinkingUnits(const ComponentEntityPtr &componentEntity, std::vector<IssuePtr> &issueList)
+{
+    auto component = std::dynamic_pointer_cast<Component>(componentEntity);
+    bool status = (component != nullptr) ?
+                      linkComponentVariableUnits(component, issueList) :
+                      true;
+    for (size_t index = 0; index < componentEntity->componentCount(); ++index) {
+        auto c = componentEntity->component(index);
+        status = traverseComponentEntityTreeLinkingUnits(c, issueList) && status;
+    }
+    return status;
+}
+
+bool areComponentVariableUnitsUnlinked(const ComponentPtr &component)
+{
+    bool unlinked = false;
+    for (size_t index = 0; index < component->variableCount() && !unlinked; ++index) {
+        auto v = component->variable(index);
+        auto u = v->units();
+        if (u != nullptr) {
+            auto model = owningModel(u);
+            unlinked = ((model == nullptr) && !isStandardUnit(u)) || (owningModel(component) != model);
+        }
+    }
+    return unlinked;
+}
+
+std::string replace(std::string string, const std::string &from, const std::string &to)
+{
+    auto index = string.find(from);
+
+    return (index == std::string::npos) ?
+               string :
+               string.replace(index, from.length(), to);
 }
 
 } // namespace libcellml

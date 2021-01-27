@@ -91,6 +91,16 @@ Model::~Model()
     delete mPimpl;
 }
 
+void registerPossibleImportSource(const ModelPtr &model, const ComponentPtr &component)
+{
+    if (component->isImport()) {
+        model->addImportSource(component->importSource());
+    }
+    for (size_t index = 0; index < component->componentCount(); ++index) {
+        registerPossibleImportSource(model, component->component(index));
+    }
+}
+
 bool Model::doAddComponent(const ComponentPtr &component)
 {
     if (component->hasParent()) {
@@ -99,10 +109,8 @@ bool Model::doAddComponent(const ComponentPtr &component)
     }
     component->setParent(shared_from_this());
 
-    if (component->isImport()) {
-        auto importSource = component->importSource();
-        addImportSource(importSource);
-    }
+    registerPossibleImportSource(shared_from_this(), component);
+
     return ComponentEntity::doAddComponent(component);
 }
 
@@ -319,53 +327,9 @@ bool Model::removeAllImportSources()
     return status;
 }
 
-void linkComponentVariableUnits(const ComponentPtr &component)
+bool Model::linkUnits()
 {
-    for (size_t index = 0; index < component->variableCount(); ++index) {
-        auto v = component->variable(index);
-        auto u = v->units();
-        if (u != nullptr) {
-            auto model = owningModel(u);
-            if (model == nullptr && !isStandardUnit(u)) {
-                model = owningModel(component);
-                if (model->hasUnits(u->name())) {
-                    v->setUnits(model->units(u->name()));
-                }
-            }
-        }
-    }
-}
-
-void traverseComponentTreeLinkingUnits(const ComponentPtr &component)
-{
-    linkComponentVariableUnits(component);
-    for (size_t index = 0; index < component->componentCount(); ++index) {
-        auto c = component->component(index);
-        traverseComponentTreeLinkingUnits(c);
-    }
-}
-
-void Model::linkUnits()
-{
-    for (size_t index = 0; index < componentCount(); ++index) {
-        auto c = component(index);
-        traverseComponentTreeLinkingUnits(c);
-    }
-}
-
-bool areComponentVariableUnitsUnlinked(const ComponentPtr &component)
-{
-    bool unlinked = false;
-    for (size_t index = 0; index < component->variableCount() && !unlinked; ++index) {
-        auto v = component->variable(index);
-        auto u = v->units();
-        if (u != nullptr) {
-            auto model = owningModel(u);
-            unlinked = model == nullptr && !isStandardUnit(u);
-        }
-    }
-
-    return unlinked;
+    return traverseComponentEntityTreeLinkingUnits(shared_from_this());
 }
 
 bool traverseComponentTreeForUnlinkedUnits(const ComponentPtr &component)
@@ -388,59 +352,14 @@ bool Model::hasUnlinkedUnits()
     return unlinkedUnits;
 }
 
-bool isUnresolvedImport(const ImportedEntityPtr &importedEntity)
-{
-    bool unresolvedImport = false;
-    if (importedEntity->isImport()) {
-        ImportSourcePtr importedSource = importedEntity->importSource();
-        unresolvedImport = !importedSource->hasModel();
-    }
-    return unresolvedImport;
-}
-
-bool hasUnresolvedComponentImports(const ComponentEntityConstPtr &parentComponentEntity);
-
-bool doHasUnresolvedComponentImports(const ComponentPtr &component)
-{
-    bool unresolvedImports = false;
-    if (component->isImport()) {
-        unresolvedImports = isUnresolvedImport(component);
-        if (!unresolvedImports) {
-            // Check that the imported component can import all it needs from its model.
-            auto importedSource = component->importSource();
-            auto importedModel = importedSource->model();
-            auto importedComponent = importedModel->component(component->importReference());
-            if (importedComponent == nullptr) {
-                unresolvedImports = true;
-            } else {
-                unresolvedImports = doHasUnresolvedComponentImports(importedComponent);
-            }
-        }
-    } else {
-        unresolvedImports = hasUnresolvedComponentImports(component);
-    }
-    return unresolvedImports;
-}
-
-bool hasUnresolvedComponentImports(const ComponentEntityConstPtr &parentComponentEntity)
-{
-    bool unresolvedImports = false;
-    for (size_t n = 0; n < parentComponentEntity->componentCount() && !unresolvedImports; ++n) {
-        libcellml::ComponentPtr component = parentComponentEntity->component(n);
-        unresolvedImports = doHasUnresolvedComponentImports(component);
-    }
-    return unresolvedImports;
-}
-
 bool Model::hasUnresolvedImports() const
 {
     bool unresolvedImports = false;
     for (size_t n = 0; n < unitsCount() && !unresolvedImports; ++n) {
-        libcellml::UnitsPtr units = Model::units(n);
-        unresolvedImports = isUnresolvedImport(units);
+        unresolvedImports = !units(n)->isResolved();
     }
-    if (!unresolvedImports) {
-        unresolvedImports = hasUnresolvedComponentImports(shared_from_this());
+    for (size_t n = 0; (n < componentCount()) && !unresolvedImports; ++n) {
+        unresolvedImports = !component(n)->isResolved();
     }
     return unresolvedImports;
 }
@@ -448,7 +367,7 @@ bool Model::hasUnresolvedImports() const
 bool hasComponentImports(const ComponentEntityConstPtr &componentEntity)
 {
     bool importsPresent = false;
-    for (size_t n = 0; n < componentEntity->componentCount() && !importsPresent; ++n) {
+    for (size_t n = 0; (n < componentEntity->componentCount()) && !importsPresent; ++n) {
         libcellml::ComponentPtr childComponent = componentEntity->component(n);
         importsPresent = childComponent->isImport();
         if (!importsPresent) {
@@ -461,7 +380,7 @@ bool hasComponentImports(const ComponentEntityConstPtr &componentEntity)
 bool Model::hasImports() const
 {
     bool importsPresent = false;
-    for (size_t n = 0; n < unitsCount() && !importsPresent; ++n) {
+    for (size_t n = 0; (n < unitsCount()) && !importsPresent; ++n) {
         libcellml::UnitsPtr units = Model::units(n);
         if (units->isImport()) {
             importsPresent = true;
@@ -473,6 +392,45 @@ bool Model::hasImports() const
     }
 
     return importsPresent;
+}
+
+void fixComponentUnits(const ModelPtr &model, const ComponentPtr &component)
+{
+    for (size_t v = 0; v < component->variableCount(); ++v) {
+        auto variable = component->variable(v);
+        if (variable->units() != nullptr) {
+            // Find the units in the model and switch out.
+            auto units = model->units(variable->units()->name());
+            if (units != nullptr) {
+                variable->setUnits(units);
+            }
+        }
+    }
+    for (size_t c = 0; c < component->componentCount(); ++c) {
+        fixComponentUnits(model, component->component(c));
+    }
+}
+
+void fixImportSourceUnits(const ImportSourcePtr &i1, ImportSourcePtr &i2)
+{
+    auto m2 = owningModel(i2);
+
+    // Go through all the imported units in this import source and update their sources.
+    for (size_t index = 0; index < i1->unitsCount(); ++index) {
+        auto u1 = i1->units(index);
+        auto u2 = m2->units(u1->name());
+        u2->setImportSource(i2);
+    }
+}
+
+void fixImportSourceComponents(const ImportSourcePtr &i1, ImportSourcePtr &i2)
+{
+    auto m2 = owningModel(i2);
+    for (size_t index = 0; index < i1->componentCount(); ++index) {
+        auto c1 = i1->component(index);
+        auto c2 = m2->component(c1->name(), true);
+        c2->setImportSource(i2);
+    }
 }
 
 ModelPtr Model::clone() const
@@ -490,6 +448,22 @@ ModelPtr Model::clone() const
 
     for (size_t index = 0; index < componentCount(); ++index) {
         m->addComponent(component(index)->clone());
+    }
+
+    for (size_t index = 0; index < m->componentCount(); ++index) {
+        fixComponentUnits(m, m->component(index));
+    }
+
+    // Remove all import sources from the cloned model as they will
+    // be duplicates.  The real ones will be copied below.
+    m->removeAllImportSources();
+
+    for (size_t index = 0; index < importSourceCount(); ++index) {
+        auto i1 = importSource(index);
+        auto i2 = i1->clone();
+        m->addImportSource(i2);
+        fixImportSourceUnits(i1, i2);
+        fixImportSourceComponents(i1, i2);
     }
 
     // Generate equivalence map starting from the models components.
@@ -520,7 +494,7 @@ bool Model::fixVariableInterfaces()
         Variable::InterfaceType interfaceType = determineInterfaceType(variable);
         if (interfaceType == Variable::InterfaceType::NONE) {
             allOk = false;
-        } else if (!variable->hasInterfaceType(interfaceType)) {
+        } else if (!variable->permitsInterfaceType(interfaceType)) {
             variable->setInterfaceType(interfaceType);
         }
     }

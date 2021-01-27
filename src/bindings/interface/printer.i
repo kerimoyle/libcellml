@@ -17,7 +17,10 @@
 #include "libcellml/printer.h"
 %}
 
+%pythoncode %{
+# libCellML generated wrapper code starts here.
+%}
+
 %create_constructor(Printer)
 
-%include "libcellml/types.h"
 %include "libcellml/printer.h"
